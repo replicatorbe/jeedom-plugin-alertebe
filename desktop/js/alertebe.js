@@ -150,10 +150,28 @@ function alertebeLoadOverview() {
     })
     table.appendChild(tbody)
     root.appendChild(table)
+    alertebeMarkCards(result.rows)
     if (result.events.length > 0) {
       root.appendChild(alertebeText('div', '{{Derniers événements}}', 'text-muted')).style.margin = '5px 0'
       root.appendChild(alertebeJournalTable(result.events, true))
     }
+  })
+}
+
+/* L'état sur chaque tuile de la liste : une surveillance en alerte se voit
+   sans lire le tableau. */
+function alertebeMarkCards(_rows) {
+  _rows.forEach(function (row) {
+    var card = document.querySelector('.eqLogicDisplayCard[data-eqLogic_id="' + row.id + '"]')
+    if (!card) { return }
+    card.querySelectorAll('.abCardState').forEach(function (old) { old.remove() })
+    if (!row.enabled) { return }
+    var label = alertebeStateLabel(row)
+    label.classList.add('abCardState')
+    label.style.display = 'inline-block'
+    label.style.marginTop = '4px'
+    card.appendChild(document.createElement('br')).className = 'abCardState'
+    card.appendChild(label)
   })
 }
 
@@ -198,8 +216,9 @@ function alertebeShowStatus(_status) {
     _status.rules.forEach(function (rule) {
       var tr = document.createElement('tr')
       tr.appendChild(alertebeText('td', rule.name))
-      if (!rule.enabled) {
-        var off = alertebeText('td', '{{règle désactivée}}', 'text-muted')
+      if (!rule.enabled || rule.no_sensor) {
+        var off = alertebeText('td', rule.enabled ? '{{aucun capteur choisi : la règle ne surveille rien}}' : '{{règle désactivée}}',
+          rule.enabled ? 'text-warning' : 'text-muted')
         off.colSpan = 3
         tr.appendChild(off)
         table.appendChild(tr)
@@ -207,7 +226,7 @@ function alertebeShowStatus(_status) {
       }
       var value = document.createElement('td')
       if (!rule.found) {
-        value.appendChild(alertebeText('span', '{{capteur introuvable}}', 'text-danger'))
+        value.appendChild(alertebeText('span', rule.problem || '{{capteur introuvable}}', 'text-danger'))
       } else if (rule.value === null) {
         value.appendChild(alertebeText('span', '{{aucune valeur lisible}}', 'text-warning'))
       } else {
@@ -217,8 +236,12 @@ function alertebeShowStatus(_status) {
         value.appendChild(alertebeText('div', '{{il y a}} ' + rule.age, rule.stale ? 'text-warning' : 'text-muted')).style.fontSize = '11px'
       }
       tr.appendChild(value)
-      var thresholds = alertebeText('td', rule.no_threshold ? '{{aucun seuil : la règle ne peut rien déclencher}}' : rule.thresholds,
-        rule.no_threshold ? 'text-warning' : 'text-muted')
+      var thresholds = alertebeText('td', rule.thresholds, 'text-muted')
+      /* Ce qui cloche dans le réglage : la règle tourne, mais pas comme on
+         croit. Dit ici, là où l'on regarde si tout va bien. */
+      ;(rule.problems || []).forEach(function (problem) {
+        thresholds.appendChild(alertebeText('div', '⚠ ' + problem, 'text-warning')).style.fontSize = '11px'
+      })
       tr.appendChild(thresholds)
       var level = document.createElement('td')
       level.appendChild(alertebeLabel(rule.label, alertebeLevelClass[rule.level] || 'label-default'))
@@ -301,6 +324,11 @@ function alertebeAddRule(_rule) {
   block.querySelectorAll('.abRuleAttr').forEach(function (field) {
     var key = field.getAttribute('data-key')
     if (key == 'type') { return }
+    /* Seuil numérique et valeur d'égalité partagent leur clé : seul le champ
+       du type reçoit la valeur, l'autre ne doit pas afficher « 7 » le jour où
+       l'on change de type. */
+    var shown = field.closest('.abShow')
+    if (shown && shown.getAttribute('data-types').split(',').indexOf(type) === -1) { return }
     if (field.type == 'checkbox') {
       field.checked = !isset(rule.enable) || rule.enable == 1
     } else if (isset(rule[key]) && rule[key] !== null) {
@@ -560,7 +588,10 @@ alertebeContainer.addEventListener('click', function (event) {
     return
   }
   if (event.target.closest('#bt_alertebeDisarm')) {
-    alertebeStatusAction({ action: 'disarm' })
+    /* Une surveillance désactivée ne reprend pas seule : on demande. */
+    jeeDialog.confirm('{{Désactiver la surveillance jusqu\'à ce que quelqu\'un la réactive ? Une alerte en cours sera oubliée. Pour une interruption temporaire, préférez « Suspendre ».}}', function (result) {
+      if (result) { alertebeStatusAction({ action: 'disarm' }) }
+    })
     return
   }
   if (event.target.closest('#bt_alertebeResume')) {
@@ -653,7 +684,11 @@ alertebeContainer.addEventListener('click', function (event) {
       } else if (result.errors.length > 0) {
         jeedomUtils.showAlert({ message: '{{Échec :}} ' + result.errors.join(' ; '), level: 'danger' })
       } else {
-        jeedomUtils.showAlert({ message: result.count + ' {{action(s) jouée(s).}}', level: 'success', timeOut: 4000 })
+        jeedomUtils.showAlert({
+          message: result.count + ' {{action(s) jouée(s).}}' + (result.fallback ? ' {{Aucune action critique n\'est réglée : ce sont celles de l\'avertissement.}}' : ''),
+          level: 'success',
+          timeOut: 6000
+        })
       }
       alertebeLoadStatus(false)
     })
@@ -684,3 +719,23 @@ alertebeContainer.addEventListener('focusout', function (event) {
 })
 
 alertebeLoadOverview()
+
+/* L'état de la page se rafraîchit seul toutes les 30 secondes : on laisse
+   souvent la page ouverte pour regarder un frigo remonter. L'intervalle
+   survit à la navigation AJAX : il s'arrête de lui-même quand la page du
+   plugin n'est plus là, et une seule instance tourne à la fois. */
+if (window.alertebeTimer) { clearInterval(window.alertebeTimer) }
+window.alertebeTimer = setInterval(function () {
+  if (!document.getElementById('div_alertebeRules')) {
+    clearInterval(window.alertebeTimer)
+    window.alertebeTimer = null
+    return
+  }
+  if (document.hidden) { return }
+  var editor = document.querySelector('.eqLogic')
+  if (editor && editor.style.display != 'none') {
+    if (alertebeCurrentId() !== null) { alertebeLoadStatus(false) }
+  } else {
+    alertebeLoadOverview()
+  }
+}, 30000)

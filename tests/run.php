@@ -246,5 +246,28 @@ $fr->mesure(-10);
 verifie('message congélateur', alertebeEngine::describe($fr->regle, $fr->dernier, 'Congélateur', -10, '°C'),
         'Congélateur : -10 °C (≥ -12 °C)');
 
+/* ----------------------------------------------------------------- 10 --- */
+echo "10. Hausse rapide sur un capteur bavard\n";
+$bavard = new Capteur(array('type' => 'rise', 'warning' => 5, 'window' => 10));
+$bavard->mesure(20);
+$niveau = 0;
+for ($i = 1; $i <= 540; $i++) {
+    $bavard->avance(1 / 60);
+    $niveau = max($niveau, $bavard->mesure(20 + $i / 100));
+}
+verifie('+5,4 °C en 9 min, une mesure par seconde : repéré', $niveau, 1);
+verifie('état borné', count($bavard->etat['samples']) <= alertebeEngine::SAMPLE_SLOTS + 1, true);
+
+/* ----------------------------------------------------------------- 11 --- */
+echo "11. Règles incohérentes\n";
+verifie('règle saine', alertebeEngine::ruleProblems(alertebeEngine::cleanRule(alertebeEngine::PROFILES['fridge'])), array());
+verifie('seuils inversés', count(alertebeEngine::ruleProblems(alertebeEngine::cleanRule(array('type' => 'above', 'warning' => 10, 'critical' => 7)))), 1);
+verifie('hors-gel inversé', count(alertebeEngine::ruleProblems(alertebeEngine::cleanRule(array('type' => 'below', 'warning' => 3, 'critical' => 5)))), 1);
+verifie('plage inversée', count(alertebeEngine::ruleProblems(alertebeEngine::cleanRule(array('type' => 'outside', 'warning_low' => 70, 'warning_high' => 40)))), 1);
+verifie('sans seuil', count(alertebeEngine::ruleProblems(alertebeEngine::cleanRule(array('type' => 'above')))), 1);
+verifie('hystérésis trop large', count(alertebeEngine::ruleProblems(alertebeEngine::cleanRule(array('type' => 'above', 'warning' => 7, 'critical' => 8, 'hysteresis' => 2)))), 1);
+verifie('égalité à 0 acceptée', alertebeEngine::ruleProblems(alertebeEngine::cleanRule(array('type' => 'equal', 'critical' => '0'))), array());
+verifie('secteur coupé (= 0)', (new Capteur(array('type' => 'equal', 'critical' => '0')))->mesure(0), 2);
+
 echo "\n" . ($ok + $ko) . " vérifications, " . $ko . " échec(s).\n";
 exit($ko > 0 ? 1 : 0);

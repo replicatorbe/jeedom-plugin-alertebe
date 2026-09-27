@@ -101,6 +101,14 @@ class alertebe extends eqLogic {
         $this->createCommands();
         $this->updateListener();
         if ($this->getIsEnable() != 1) {
+            /* Désactivé, l'équipement ne reçoit plus rien : ses commandes
+             * resteraient figées sur « Critique ». L'alerte en cours est oubliée,
+             * comme pour une surveillance désactivée ; la réactivation repart de
+             * zéro, durées de confirmation comprises. */
+            if ($this->loadState()['eq']['level'] != alertebeEngine::NORMAL) {
+                $this->silence();
+                $this->journal(__('Équipement désactivé : alerte en cours oubliée', __FILE__), 'user');
+            }
             return;
         }
         try {
@@ -333,8 +341,7 @@ class alertebe extends eqLogic {
             $until = time() + (int) round($minutes * 60);
             config::save($this->rtKey('suspended_until'), $until, __CLASS__);
             $this->silence();
-            $this->journal(__('Surveillance suspendue jusqu\'à', __FILE__) . ' ' . date('H:i', $until)
-                . ($until - time() >= 86400 ? ' (' . date('d/m', $until) . ')' : '') . self::byText($_by), 'user');
+            $this->journal(__('Surveillance suspendue jusqu\'à', __FILE__) . ' ' . self::whenText($until) . self::byText($_by), 'user');
             $this->refreshCommands();
         });
     }
@@ -421,7 +428,8 @@ class alertebe extends eqLogic {
 
     /* Un capteur, tel que Jeedom le connaît maintenant. */
     public static function readSensor($_expression) {
-        $sensor = array('found' => false, 'value' => null, 'collected' => null, 'name' => (string) $_expression, 'unit' => '');
+        $sensor = array('found' => false, 'value' => null, 'collected' => null, 'name' => (string) $_expression, 'unit' => '',
+                        'problem' => __('capteur introuvable', __FILE__));
         $id = self::cmdIdOf($_expression);
         if ($id === null) {
             return $sensor;
@@ -431,8 +439,16 @@ class alertebe extends eqLogic {
             if (!is_object($cmd) || $cmd->getType() != 'info') {
                 return $sensor;
             }
-            $sensor['found'] = true;
             $sensor['name'] = $cmd->getHumanName();
+            /* Jeedom ignore les valeurs d'un équipement désactivé et n'en rend
+             * plus qu'une vide : la règle serait aveugle sans le savoir. */
+            $eqLogic = $cmd->getEqLogic();
+            if (!is_object($eqLogic) || $eqLogic->getIsEnable() != 1) {
+                $sensor['problem'] = __('l\'équipement du capteur est désactivé', __FILE__);
+                return $sensor;
+            }
+            $sensor['found'] = true;
+            $sensor['problem'] = '';
             $sensor['unit'] = (string) $cmd->getUnite();
             $sensor['value'] = $cmd->execCmd();
             $collected = strtotime((string) $cmd->getCollectDate());
@@ -471,39 +487,56 @@ class alertebe extends eqLogic {
                 $details[] = array('id' => $rule['id'], 'name' => $name, 'enabled' => false);
                 continue;
             }
+            if ($rule['cmd'] === '') {
+                /* Une règle en cours de réglage : rien à surveiller encore. */
+                $details[] = array('id' => $rule['id'], 'enabled' => true, 'no_sensor' => true,
+                                   'name' => ($name === '') ? __('Règle sans capteur', __FILE__) : $name,
+                                   'rule' => $rule, 'level' => 0, 'was' => 0);
+                continue;
+            }
             $sensor = self::readSensor($rule['cmd']);
             $previous = isset($state['rules'][$rule['id']]) ? $state['rules'][$rule['id']] : array();
             $result = alertebeEngine::evaluateRule($rule, $sensor['found'] ? $sensor['value'] : null,
                                                    $sensor['collected'], $previous, $now);
+            if (!$sensor['found']) {
+                /* Un capteur supprimé ou renommé hors de Jeedom : la règle ne
+                 * voit plus rien. Se taire serait dire « tout va bien » sur un
+                 * frigo qu'on ne regarde plus. */
+                $result['level'] = max($result['level'], alertebeEngine::WARNING);
+            }
             /* Le niveau affiché, capteur muet compris : le retour à la normale
              * nomme les règles qui étaient en alerte. */
             $result['state']['shown'] = $result['level'];
             $ruleStates[$rule['id']] = $result['state'];
             $levels[$rule['id']] = $result['level'];
             $previousLevel = isset($previous['level']) ? (int) $previous['level'] : 0;
-            if ($previousLevel != (int) $result['state']['level']) {
+            $previousShown = isset($previous['shown']) ? (int) $previous['shown'] : 0;
+            if ($previousLevel != (int) $result['state']['level'] || $previousShown != $result['level']) {
                 $changed = true;
             }
             if ($name === '') {
-                $name = $sensor['found'] ? $sensor['name'] : __('Règle sans capteur', __FILE__);
+                $name = $sensor['name'];
             }
+            $text = $sensor['found'] ? alertebeEngine::describe($rule, $result, $name, $sensor['value'], $sensor['unit'])
+                                     : $name . ' : ' . $sensor['problem'];
             $details[] = array(
                 'id'        => $rule['id'],
                 'enabled'   => true,
                 'name'      => $name,
                 'sensor'    => $sensor['name'],
                 'found'     => $sensor['found'],
+                'problem'   => $sensor['problem'],
                 'rule'      => $rule,
                 'unit'      => $sensor['unit'],
                 'value'     => $sensor['value'],
                 'level'     => $result['level'],
-                'was'       => isset($previous['shown']) ? (int) $previous['shown'] : 0,
+                'was'       => $previousShown,
                 'metric'    => $result['metric'],
                 'stale'     => $result['stale'],
                 'age'       => $result['age'],
                 'missing'   => $result['missing'],
                 'pending'   => $result['pending'],
-                'text'      => alertebeEngine::describe($rule, $result, $name, $sensor['value'], $sensor['unit']),
+                'text'      => $text,
                 'peak'      => alertebeEngine::peakText($rule, $result['state'], $sensor['unit']),
             );
         }
@@ -569,7 +602,9 @@ class alertebe extends eqLogic {
             case 'critical':
                 $text = $label . ' : ' . $_context['message'];
                 $this->journal($text, $_event['type']);
-                log::add(__CLASS__, ($_event['type'] == 'critical') ? 'error' : 'warning', $this->getHumanName() . ' ' . $text);
+                /* Pas « error » : une alerte n'est pas une panne du plugin, et le
+                 * cœur transforme les erreurs de plugin en messages à part. */
+                log::add(__CLASS__, ($_event['type'] == 'critical') ? 'warning' : 'info', $this->getHumanName() . ' ' . $text);
                 if ($this->getConfiguration('message_center', 1) == 1) {
                     message::add(__CLASS__, $this->getHumanName() . ' — ' . $text, '', 'alert' . $this->getId());
                 }
@@ -627,8 +662,7 @@ class alertebe extends eqLogic {
      * échecs, pour le bouton « Tester ».
      */
     public function runActions($_trigger, $_tags) {
-        $actions = $this->getConfiguration('actions', array());
-        $list = (is_array($actions) && isset($actions[$_trigger]) && is_array($actions[$_trigger])) ? $actions[$_trigger] : array();
+        $list = $this->actionsFor($_trigger);
         $errors = array();
         foreach ($list as $action) {
             $options = (isset($action['options']) && is_array($action['options'])) ? $action['options'] : array();
@@ -655,6 +689,25 @@ class alertebe extends eqLogic {
             }
         }
         return $errors;
+    }
+
+    /*
+     * Les actions d'un déclencheur. Sans action critique réglée, le critique
+     * joue celles de l'avertissement : qui n'a réglé qu'une notification
+     * s'attend à la recevoir aussi quand le frigo passe à 12 °C, et une alerte
+     * qui monte directement en critique ne doit pas rester muette.
+     */
+    public function actionsFor($_trigger, &$_fallback = false) {
+        $actions = self::cleanActions($this->getConfiguration('actions', array()));
+        $_fallback = false;
+        if (!isset($actions[$_trigger])) {
+            return array();
+        }
+        if ($_trigger == 'critical' && count($actions['critical']) == 0 && count($actions['warning']) > 0) {
+            $_fallback = true;
+            return $actions['warning'];
+        }
+        return $actions[$_trigger];
     }
 
     private function runAction($_expression, $_options) {
@@ -712,10 +765,12 @@ class alertebe extends eqLogic {
             '#duree#'      => '0 s',
             '#rappel#'     => '0',
         );
-        $count = count(self::cleanActions($this->getConfiguration('actions', array()))[$_trigger]);
+        $fallback = false;
+        $count = count($this->actionsFor($_trigger, $fallback));
         $errors = $this->runActions($_trigger, $tags);
-        $this->journal(__('Essai des actions', __FILE__) . ' « ' . self::triggerLabel($_trigger) . ' »', 'user');
-        return array('count' => $count, 'errors' => $errors);
+        $this->journal(__('Essai des actions', __FILE__) . ' « ' . self::triggerLabel($_trigger) . ' »'
+            . ($fallback ? ' (' . __('celles de l\'avertissement, aucune n\'étant réglée pour le critique', __FILE__) . ')' : ''), 'user');
+        return array('count' => $count, 'errors' => $errors, 'fallback' => $fallback);
     }
 
     public static function triggerLabel($_trigger) {
@@ -736,7 +791,7 @@ class alertebe extends eqLogic {
         if ($mode == 'disarmed') {
             $label = __('Désactivée', __FILE__);
         } elseif ($mode == 'suspended') {
-            $label = __('Suspendue jusqu\'à', __FILE__) . ' ' . date('H:i', $this->suspendedUntil());
+            $label = __('Suspendue jusqu\'à', __FILE__) . ' ' . self::whenText($this->suspendedUntil());
         } else {
             $label = alertebeEngine::levelLabel($level);
         }
@@ -777,7 +832,8 @@ class alertebe extends eqLogic {
         return is_array($entries) ? $entries : array();
     }
 
-    /* « 14:02 », « hier 23:10 », « 21/09 06:30 ». */
+    /* « 14:02 », « hier 23:10 », « 21/09 06:30 » — et « 28/09 06:30 » pour
+     * la fin d'une suspension qui dépasse minuit. */
     public static function whenText($_at) {
         $day = date('Y-m-d', $_at);
         if ($day == date('Y-m-d')) {
@@ -810,6 +866,11 @@ class alertebe extends eqLogic {
                     continue;
                 }
                 $rule = $detail['rule'];
+                if (!empty($detail['no_sensor'])) {
+                    $rules[] = array('name' => $detail['name'], 'enabled' => true, 'no_sensor' => true,
+                                     'problems' => alertebeEngine::ruleProblems($rule));
+                    continue;
+                }
                 $pending = '';
                 if ($detail['pending'] !== null) {
                     $pending = alertebeEngine::levelLabel($detail['pending']['level']) . ' ' . __('à', __FILE__)
@@ -827,15 +888,17 @@ class alertebe extends eqLogic {
                     'enabled'    => true,
                     'sensor'     => $detail['sensor'],
                     'found'      => $detail['found'],
+                    'problem'    => isset($detail['problem']) ? $detail['problem'] : '',
                     'value'      => $detail['missing'] ? null
                                     : alertebeEngine::measureText($rule, $detail['value'], $detail['metric'], $detail['unit']),
                     'level'      => $detail['level'],
+                    'text'       => $detail['text'],
                     'label'      => alertebeEngine::levelLabel($detail['level']),
                     'stale'      => $detail['stale'],
                     'age'        => ($detail['age'] === null) ? null : alertebeEngine::formatDuration($detail['age']),
                     'pending'    => $pending,
                     'thresholds' => implode(' · ', $thresholds),
-                    'no_threshold' => !alertebeEngine::ruleHasThreshold($rule),
+                    'problems'   => alertebeEngine::ruleProblems($rule),
                 );
             }
         }
@@ -863,8 +926,8 @@ class alertebe extends eqLogic {
             $status = $eqLogic->pageStatus();
             $message = '';
             foreach ($status['rules'] as $rule) {
-                if ($rule['enabled'] && $rule['level'] > 0) {
-                    $message .= (($message === '') ? '' : ' ; ') . $rule['name'] . ' : ' . $rule['value'];
+                if ($rule['enabled'] && !empty($rule['level'])) {
+                    $message .= (($message === '') ? '' : ' ; ') . $rule['text'];
                 }
             }
             $rows[] = array(

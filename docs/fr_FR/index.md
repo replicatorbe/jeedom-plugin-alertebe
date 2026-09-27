@@ -57,7 +57,13 @@ un incendie, mettez deux règles sur le même capteur, le profil « Incendie —
 température » et le profil « Incendie — hausse rapide ».
 
 Une valeur illisible (vide, texte dans un capteur numérique) ne change rien :
-la règle garde son niveau.
+la règle garde son niveau. Un capteur **introuvable** — supprimé, ou dont
+l'équipement est désactivé — met la règle en avertissement : une surveillance
+qui ne voit plus rien ne doit pas dire « tout va bien ».
+
+La page signale les réglages qui ne feront pas ce qu'on croit : seuils
+inversés, plage inversée, hystérésis plus large que l'écart entre les deux
+seuils, règle sans seuil ou sans capteur.
 
 ### Profils
 
@@ -81,7 +87,9 @@ Trois listes, au format des scénarios — une commande (notification, sirène,
 lampe) ou un bloc (message, scénario, variable) :
 
 - **Avertissement** : quand la surveillance passe de normal à avertissement ;
-- **Critique** : quand elle passe en critique, depuis normal ou avertissement ;
+- **Critique** : quand elle passe en critique, depuis normal ou avertissement.
+  Laissée vide, ce sont les actions d'avertissement qui sont jouées : qui n'a
+  réglé qu'une notification la reçoit aussi quand le frigo passe à 12 °C ;
 - **Retour à la normale** : quand tout est rentré dans l'ordre.
 
 Critique → avertissement ne déclenche rien : l'alerte n'est pas finie. C'est
@@ -129,7 +137,8 @@ action n'est réglée, ou si la notification n'est pas partie.
 - **Désactiver** la coupe jusqu'à nouvel ordre.
 
 Dans les deux cas, une alerte en cours est oubliée sans jouer les actions de
-retour à la normale. À la reprise, un problème toujours présent repasse par sa
+retour à la normale. Il en va de même quand on désactive l'équipement lui-même
+(case « Activer »). À la reprise, un problème toujours présent repasse par sa
 durée de confirmation et redéclenche ses actions.
 
 ## Les commandes

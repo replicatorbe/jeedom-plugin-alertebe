@@ -43,9 +43,14 @@ class alertebeEngine {
      */
     const TYPES = array('above', 'below', 'outside', 'equal', 'rise', 'fall');
 
-    /* Les échantillons gardés pour une variation : une mesure par seconde sur
-     * une fenêtre d'une heure ne doit pas faire grossir l'état sans fin. */
-    const MAX_SAMPLES = 240;
+    /*
+     * Les échantillons d'une variation sont regroupés par tranches : au plus
+     * SAMPLE_SLOTS tranches sur la fenêtre, de 10 secondes au moins. Chaque
+     * tranche garde son extrême (le plus bas pour une hausse, le plus haut pour
+     * une baisse) : un capteur qui publie chaque seconde ne fait ni grossir
+     * l'état sans fin, ni oublier le point de départ d'une hausse.
+     */
+    const SAMPLE_SLOTS = 200;
 
     /*
      * Les profils : des règles préremplies, toutes modifiables ensuite.
@@ -234,6 +239,53 @@ class alertebeEngine {
         return self::number($_rule['stale_after']) > 0;
     }
 
+    /*
+     * Ce qui cloche dans une règle, en clair, pour la page : elle s'enregistre
+     * quand même, mais ne fera pas ce qu'on croit.
+     */
+    public static function ruleProblems($_rule) {
+        $problems = array();
+        if (!self::ruleHasThreshold($_rule)) {
+            $problems[] = self::t('aucun seuil : la règle ne peut rien déclencher');
+            return $problems;
+        }
+        $warning = self::threshold($_rule, 'warning');
+        $critical = self::threshold($_rule, 'critical');
+        switch ($_rule['type']) {
+            case 'above':
+            case 'rise':
+            case 'fall':
+                if ($warning !== null && $critical !== null && $critical < $warning) {
+                    $problems[] = self::t('le seuil critique est plus bas que l\'avertissement : l\'avertissement ne servira jamais');
+                }
+                break;
+            case 'below':
+                if ($warning !== null && $critical !== null && $critical > $warning) {
+                    $problems[] = self::t('le seuil critique est plus haut que l\'avertissement : l\'avertissement ne servira jamais');
+                }
+                break;
+            case 'outside':
+                foreach (array('warning', 'critical') as $prefix) {
+                    $low = self::threshold($_rule, $prefix . '_low');
+                    $high = self::threshold($_rule, $prefix . '_high');
+                    if ($low !== null && $high !== null && $low >= $high) {
+                        $problems[] = self::t('plage inversée') . ' (' . self::levelLabel(($prefix == 'critical') ? self::CRITICAL : self::WARNING) . ')';
+                    }
+                }
+                break;
+            case 'equal':
+                if ($warning !== null && $critical !== null && mb_strtolower($warning) === mb_strtolower($critical)) {
+                    $problems[] = self::t('même valeur pour les deux niveaux : seul le critique servira');
+                }
+                break;
+        }
+        if ($_rule['type'] !== 'equal' && $_rule['hysteresis'] > 0 && $warning !== null && $critical !== null
+            && $_rule['hysteresis'] >= abs($critical - $warning) && $_rule['type'] !== 'outside') {
+            $problems[] = self::t('hystérésis plus large que l\'écart entre les deux seuils');
+        }
+        return $problems;
+    }
+
     private static function thresholdKeys($_type) {
         return ($_type === 'outside') ? array('warning_low', 'warning_high', 'critical_low', 'critical_high')
                                       : array('warning', 'critical');
@@ -279,20 +331,25 @@ class alertebeEngine {
         if ($_rule['type'] !== 'rise' && $_rule['type'] !== 'fall') {
             return $value;
         }
+        $rise = ($_rule['type'] === 'rise');
         $window = $_rule['window'] * 60;
+        $slot = max(10, (int) ceil($window / self::SAMPLE_SLOTS));
+        $bucket = (int) (floor($_now / $slot) * $slot);
         $samples = array();
         foreach ($_state['samples'] as $sample) {
             if (is_array($sample) && count($sample) == 2 && $sample[0] >= $_now - $window && $sample[0] <= $_now) {
                 $samples[] = $sample;
             }
         }
-        $samples[] = array($_now, $value);
-        if (count($samples) > self::MAX_SAMPLES) {
-            $samples = array_slice($samples, -self::MAX_SAMPLES);
+        $last = count($samples) - 1;
+        if ($last >= 0 && $samples[$last][0] == $bucket) {
+            $samples[$last][1] = $rise ? min($samples[$last][1], $value) : max($samples[$last][1], $value);
+        } else {
+            $samples[] = array($bucket, $value);
         }
         $_state['samples'] = $samples;
         $values = array_column($samples, 1);
-        return ($_rule['type'] === 'rise') ? $value - min($values) : max($values) - $value;
+        return $rise ? $value - min($values) : max($values) - $value;
     }
 
     /*

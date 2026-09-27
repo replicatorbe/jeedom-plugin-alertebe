@@ -316,7 +316,7 @@ function alertebeRuleNumber($_key, $_label, $_unit, $_placeholder, $_types, $_he
 				<?php
 				$triggers = array(
 					'warning'  => array('icon' => 'fas fa-exclamation-triangle text-warning', 'help' => '{{Quand la surveillance passe de normal à avertissement.}}'),
-					'critical' => array('icon' => 'fas fa-fire text-danger', 'help' => '{{Quand elle passe en critique, depuis normal ou depuis avertissement.}}'),
+					'critical' => array('icon' => 'fas fa-fire text-danger', 'help' => '{{Quand elle passe en critique, depuis normal ou depuis avertissement. Laissée vide, ce sont les actions d\'avertissement qui sont jouées.}}'),
 					'recovery' => array('icon' => 'fas fa-check-circle text-success', 'help' => '{{Quand tout est revenu à la normale. #duree# donne alors la durée de l\'alerte.}}'),
 				);
 				foreach ($triggers as $trigger => $info) {
