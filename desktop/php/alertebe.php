@@ -281,8 +281,8 @@ function alertebeRuleNumber($_key, $_label, $_unit, $_placeholder, $_types, $_he
 								<?php
 								alertebeRuleNumber('warning', '<i class="fas fa-exclamation-triangle text-warning"></i> {{Avertissement}}', '', '7', 'above,below,rise,fall');
 								alertebeRuleNumber('critical', '<i class="fas fa-fire text-danger"></i> {{Critique}}', '', '10', 'above,below,rise,fall');
-								alertebeRuleNumber('warning', '<i class="fas fa-exclamation-triangle text-warning"></i> {{Avertissement si égal à}}', '', '', 'equal');
-								alertebeRuleNumber('critical', '<i class="fas fa-fire text-danger"></i> {{Critique si égal à}}', '', '1', 'equal');
+								alertebeRuleNumber('warning', '<i class="fas fa-exclamation-triangle text-warning"></i> {{Avertissement si égal à}}', '', 'open|ouvert', 'equal', '{{Plusieurs valeurs possibles, séparées par | : open|ouvert. Majuscules indifférentes.}}');
+								alertebeRuleNumber('critical', '<i class="fas fa-fire text-danger"></i> {{Critique si égal à}}', '', '1', 'equal', '{{Plusieurs valeurs possibles, séparées par | : 1|on. Majuscules indifférentes.}}');
 								alertebeRuleNumber('warning_low', '<i class="fas fa-exclamation-triangle text-warning"></i> {{Avertissement sous}}', '', '40', 'outside');
 								alertebeRuleNumber('warning_high', '{{… ou au-dessus de}}', '', '70', 'outside');
 								alertebeRuleNumber('critical_low', '<i class="fas fa-fire text-danger"></i> {{Critique sous}}', '', '30', 'outside');
@@ -308,8 +308,9 @@ function alertebeRuleNumber($_key, $_label, $_unit, $_placeholder, $_types, $_he
 				<br>
 				<div class="alert alert-info" style="margin:5px 5px 10px 5px;">
 					{{Les actions se choisissent comme dans un scénario : une commande (notification, sirène, lampe) ou un bloc (message, scénario, variable). Dans les titres et messages, ces mots sont remplacés :}}
-					<code>#equipement#</code> <code>#niveau#</code> <code>#message#</code> <code>#regle#</code> <code>#capteur#</code>
-					<code>#valeur#</code> <code>#unite#</code> <code>#seuil#</code> <code>#pic#</code> <code>#depuis#</code> <code>#duree#</code> <code>#rappel#</code>.
+					<code>#equipement#</code> <code>#objet#</code> <code>#niveau#</code> <code>#message#</code> <code>#regle#</code> <code>#capteur#</code>
+					<code>#valeur#</code> <code>#unite#</code> <code>#seuil#</code> <code>#pic#</code> <code>#depuis#</code> <code>#duree#</code> <code>#heure#</code> <code>#rappel#</code>
+					<code>#acquitte_par#</code>.
 					{{Exemple :}} <code>#equipement# — #niveau# : #message#</code>.
 					{{Un rappel rejoue les actions du niveau en cours. Sauvegardez avant de tester : le test joue les actions enregistrées.}}
 				</div>
@@ -317,7 +318,7 @@ function alertebeRuleNumber($_key, $_label, $_unit, $_placeholder, $_types, $_he
 				$triggers = array(
 					'warning'  => array('icon' => 'fas fa-exclamation-triangle text-warning', 'help' => '{{Quand la surveillance passe de normal à avertissement.}}'),
 					'critical' => array('icon' => 'fas fa-fire text-danger', 'help' => '{{Quand elle passe en critique, depuis normal ou depuis avertissement. Laissée vide, ce sont les actions d\'avertissement qui sont jouées.}}'),
-					'recovery' => array('icon' => 'fas fa-check-circle text-success', 'help' => '{{Quand tout est revenu à la normale. #duree# donne alors la durée de l\'alerte.}}'),
+					'recovery' => array('icon' => 'fas fa-check-circle text-success', 'help' => '{{Quand tout est revenu à la normale. #duree# donne alors la durée de l\'alerte, #acquitte_par# qui l\'a acquittée.}}'),
 				);
 				foreach ($triggers as $trigger => $info) {
 				?>

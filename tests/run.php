@@ -269,5 +269,20 @@ verifie('hystérésis trop large', count(alertebeEngine::ruleProblems(alertebeEn
 verifie('égalité à 0 acceptée', alertebeEngine::ruleProblems(alertebeEngine::cleanRule(array('type' => 'equal', 'critical' => '0'))), array());
 verifie('secteur coupé (= 0)', (new Capteur(array('type' => 'equal', 'critical' => '0')))->mesure(0), 2);
 
+/* ----------------------------------------------------------------- 12 --- */
+echo "12. Égal à : plusieurs valeurs\n";
+$porte = alertebeEngine::cleanRule(array('type' => 'equal', 'warning' => ' open | ouvert |', 'critical' => ''));
+verifie('valeurs remises en forme', $porte['warning'], 'open|ouvert');
+verifie('« Ouvert » reconnu', (new Capteur($porte))->mesure('Ouvert'), 1);
+verifie('« open » reconnu', (new Capteur($porte))->mesure('open'), 1);
+verifie('« closed » ignoré', (new Capteur($porte))->mesure('closed'), 0);
+$contact = new Capteur(array('type' => 'equal', 'critical' => '1|on'));
+verifie('1 numérique reconnu', $contact->mesure(1), 2);
+verifie('seuil lisible', alertebeEngine::thresholdText($porte, 1), '= open ou ouvert');
+verifie('valeur commune aux deux niveaux signalée',
+        count(alertebeEngine::ruleProblems(alertebeEngine::cleanRule(array('type' => 'equal', 'warning' => 'open|ajar', 'critical' => 'OPEN')))), 1);
+verifie('valeurs distinctes acceptées',
+        alertebeEngine::ruleProblems(alertebeEngine::cleanRule(array('type' => 'equal', 'warning' => 'ajar', 'critical' => 'open|1'))), array());
+
 echo "\n" . ($ok + $ko) . " vérifications, " . $ko . " échec(s).\n";
 exit($ko > 0 ? 1 : 0);

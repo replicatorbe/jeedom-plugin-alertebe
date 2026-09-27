@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3
+
+- **Centre de messages** : un message par alerte et par niveau. Jusqu'ici, le
+  passage en critique et les alertes suivantes gardaient le texte de la
+  première, et l'action globale « sur nouveau message » ne partait plus.
+- **Types génériques d'alarme** sur les commandes : chaque surveillance
+  apparaît comme une alarme dans l'application mobile et les ponts
+  (Homebridge, Google).
+- **Égal à** : plusieurs valeurs séparées par `|`, par exemple `open|ouvert`.
+- Nouveaux mots dans les actions : `#objet#`, `#heure#`, `#acquitte_par#`.
+- Interface traduite en anglais.
+
 ## 0.2
 
 - **Capteur introuvable** : une règle dont le capteur a été supprimé, ou dont

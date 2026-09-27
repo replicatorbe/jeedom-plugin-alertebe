@@ -1,5 +1,10 @@
-# Contrôles de conformité du plugin (syntaxe PHP, structure, info.json).
-# Workflow réutilisable maintenu par Jeedom, utilisé par les plugins officiels.
+# Intégration continue du plugin alertebe.
+#  - plugin : contrôles de conformité (syntaxe PHP, structure, info.json), par
+#    le workflow réutilisable maintenu par Jeedom, utilisé par les plugins
+#    officiels.
+#  - tests : le moteur rejoué hors ligne sous chaque version de PHP prise en
+#    charge, et les pièges du cœur lisibles sans Jeedom. « php -l » ne voit pas
+#    une fonction PHP 8 appelée sous PHP 7.4 : seule l'exécution la révèle.
 name: 'Full Workflows Plugin Jeedom'
 
 on:
@@ -7,7 +12,31 @@ on:
     branches: [beta]
   pull_request:
     branches: [beta, master]
+  workflow_dispatch:
 
 jobs:
   plugin:
     uses: jeedom/workflows/.github/workflows/plugin.yml@main
+
+  tests:
+    name: Tests hors ligne (PHP ${{ matrix.php }})
+    runs-on: ubuntu-24.04  # épinglé : PHP 7.4 doit rester disponible
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.0', '8.2', '8.4']
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, json
+          coverage: none
+          tools: none
+
+      - name: Moteur des alertes
+        run: php tests/run.php
+
+      - name: Pièges du cœur (lecture seule)
+        run: php tests/check-classes.php --statique

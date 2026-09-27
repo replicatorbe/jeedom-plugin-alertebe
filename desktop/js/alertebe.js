@@ -297,7 +297,7 @@ var alertebeTypeHints = {
   above: '{{Alerte quand la valeur atteint ou dépasse le seuil. Laissez un niveau vide pour ne pas l\'utiliser.}}',
   below: '{{Alerte quand la valeur descend au seuil ou en dessous : hors-gel, congélateur éteint, batterie faible.}}',
   outside: '{{Alerte quand la valeur sort de la plage. Une borne vide n\'est pas contrôlée.}}',
-  equal: '{{Alerte quand le capteur vaut exactement cette valeur : 1 pour un détecteur de fuite ou de fumée, « open » pour un contact. Sans tenir compte des majuscules.}}',
+  equal: '{{Alerte quand le capteur vaut exactement cette valeur : 1 pour un détecteur de fuite ou de fumée, « open » pour un contact. Plusieurs valeurs se séparent par | : open|ouvert. Sans tenir compte des majuscules.}}',
   rise: '{{Alerte quand la valeur a monté d\'au moins ce seuil sur la fenêtre, depuis son point le plus bas. La règle se tait quand la hausse s\'arrête : doublez-la d\'une règle de seuil.}}',
   fall: '{{Alerte quand la valeur a baissé d\'au moins ce seuil sur la fenêtre, depuis son point le plus haut.}}'
 }

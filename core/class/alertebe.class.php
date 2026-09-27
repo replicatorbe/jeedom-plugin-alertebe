@@ -129,7 +129,7 @@ class alertebe extends eqLogic {
         foreach (array('state', 'journal', 'disarmed', 'suspended_until') as $name) {
             config::remove($this->rtKey($name), __CLASS__);
         }
-        message::removeAll(__CLASS__, 'alert' . $this->getId());
+        $this->removeMessages();
     }
 
     /* L'écouteur suit la liste des capteurs : reconstruit à chaque
@@ -202,19 +202,19 @@ class alertebe extends eqLogic {
             array('logicalId' => 'level', 'name' => __('Niveau', __FILE__),
                   'type' => 'info', 'subType' => 'numeric', 'visible' => 0, 'historized' => 1, 'min' => 0, 'max' => 2),
             array('logicalId' => 'alert', 'name' => __('En alerte', __FILE__),
-                  'type' => 'info', 'subType' => 'binary', 'visible' => 0, 'historized' => 1),
+                  'type' => 'info', 'subType' => 'binary', 'visible' => 0, 'historized' => 1, 'generic' => 'ALARM_STATE'),
             array('logicalId' => 'since', 'name' => __('Depuis', __FILE__),
                   'type' => 'info', 'subType' => 'string', 'visible' => 0),
             array('logicalId' => 'acknowledged', 'name' => __('Acquittée', __FILE__),
                   'type' => 'info', 'subType' => 'binary', 'visible' => 0),
             array('logicalId' => 'monitoring', 'name' => __('Surveillance active', __FILE__),
-                  'type' => 'info', 'subType' => 'binary', 'visible' => 0),
+                  'type' => 'info', 'subType' => 'binary', 'visible' => 0, 'generic' => 'ALARM_ENABLE_STATE'),
             array('logicalId' => 'ack', 'name' => __('Acquitter', __FILE__),
                   'type' => 'action', 'subType' => 'other', 'visible' => 1),
             array('logicalId' => 'arm', 'name' => __('Activer la surveillance', __FILE__),
-                  'type' => 'action', 'subType' => 'other', 'visible' => 0, 'value' => 'monitoring'),
+                  'type' => 'action', 'subType' => 'other', 'visible' => 0, 'value' => 'monitoring', 'generic' => 'ALARM_ARMED'),
             array('logicalId' => 'disarm', 'name' => __('Désactiver la surveillance', __FILE__),
-                  'type' => 'action', 'subType' => 'other', 'visible' => 0, 'value' => 'monitoring'),
+                  'type' => 'action', 'subType' => 'other', 'visible' => 0, 'value' => 'monitoring', 'generic' => 'ALARM_RELEASED'),
             array('logicalId' => 'suspend', 'name' => __('Suspendre (minutes)', __FILE__),
                   'type' => 'action', 'subType' => 'slider', 'visible' => 0, 'min' => 5, 'max' => 1440, 'step' => 5),
             array('logicalId' => 'resume', 'name' => __('Reprendre', __FILE__),
@@ -248,6 +248,14 @@ class alertebe extends eqLogic {
                     $cmd->setDisplay('parameters', array('step' => $definition['step']));
                 }
                 $cmd->setOrder($order);
+                $cmd->save();
+            }
+            /* Le type générique fait d'une surveillance une alarme pour l'appli
+             * mobile et les ponts (Homebridge, Google) : état, activation,
+             * désactivation. Posé aussi sur les commandes d'avant la 0.3, mais
+             * jamais par-dessus un choix de l'utilisateur. */
+            if (isset($definition['generic']) && $cmd->getGeneric_type() == '') {
+                $cmd->setGeneric_type($definition['generic']);
                 $cmd->save();
             }
             $created[$definition['logicalId']] = $cmd;
@@ -318,7 +326,25 @@ class alertebe extends eqLogic {
     private function silence() {
         $this->storeState(array('eq' => alertebeEngine::defaultEqState(), 'rules' => array()), true);
         cache::delete($this->rtKey('details'));
+        $this->removeMessages();
+    }
+
+    /*
+     * Un message par alerte et par niveau : « alert12::1758964800::critical ».
+     * Le cœur ne recrée pas un message dont l'identifiant existe déjà, il en
+     * change seulement la date : avec un identifiant par surveillance, le
+     * passage en critique et les alertes suivantes gardaient le texte de la
+     * première, et l'action globale « sur nouveau message » ne partait plus.
+     */
+    private function messageId($_since, $_type) {
+        return 'alert' . $this->getId() . '::' . (int) $_since . '::' . $_type;
+    }
+
+    /* Les messages de la surveillance, et celui d'avant la 0.3 qui n'avait pas
+     * de suffixe. */
+    private function removeMessages() {
         message::removeAll(__CLASS__, 'alert' . $this->getId());
+        message::removeAll(__CLASS__, 'alert' . $this->getId() . '::', true);
     }
 
     public function disarm($_by = '') {
@@ -573,13 +599,16 @@ class alertebe extends eqLogic {
         });
         $worst = (count($active) > 0) ? $active[0] : null;
         $since = $_eqState['since'];
+        $object = $this->getObject();
         return array(
             'details' => $_details,
             'active'  => $active,
             'worst'   => $worst,
             'message' => implode(' ; ', array_column($active, 'text')),
+            'since'   => ($since === null) ? $_now : $since,
             'tags'    => array(
                 '#equipement#' => $this->getName(),
+                '#objet#'      => is_object($object) ? $object->getName() : '',
                 '#niveau#'     => alertebeEngine::levelLabel($_eqState['level']),
                 '#message#'    => implode(' ; ', array_column($active, 'text')),
                 '#regle#'      => ($worst === null) ? '' : $worst['name'],
@@ -590,7 +619,9 @@ class alertebe extends eqLogic {
                 '#pic#'        => ($worst === null) ? '' : $worst['peak'],
                 '#depuis#'     => ($since === null) ? '' : date('H:i', $since),
                 '#duree#'      => ($since === null) ? '' : alertebeEngine::formatDuration($_now - $since),
+                '#heure#'      => date('H:i', $_now),
                 '#rappel#'     => '0',
+                '#acquitte_par#' => '',
             ),
         );
     }
@@ -606,7 +637,8 @@ class alertebe extends eqLogic {
                  * cœur transforme les erreurs de plugin en messages à part. */
                 log::add(__CLASS__, ($_event['type'] == 'critical') ? 'warning' : 'info', $this->getHumanName() . ' ' . $text);
                 if ($this->getConfiguration('message_center', 1) == 1) {
-                    message::add(__CLASS__, $this->getHumanName() . ' — ' . $text, '', 'alert' . $this->getId());
+                    message::add(__CLASS__, $this->getHumanName() . ' — ' . $text, '',
+                                 $this->messageId($_context['since'], $_event['type']));
                 }
                 $this->runActions($_event['type'], $_context['tags']);
                 return;
@@ -644,6 +676,10 @@ class alertebe extends eqLogic {
                     }, $ended)));
                 }
                 $tags['#depuis#'] = ($_before['since'] === null) ? '' : date('H:i', $_before['since']);
+                /* Seul moment où il sert : une alerte en cours n'est jamais
+                 * acquittée quand ses actions partent, sinon elles ne partiraient
+                 * pas. */
+                $tags['#acquitte_par#'] = ($_before['ack'] == 1) ? (string) $_before['ack_by'] : '';
                 $this->runActions('recovery', $tags);
                 return;
         }
@@ -750,8 +786,10 @@ class alertebe extends eqLogic {
         $level = ($_trigger == 'critical') ? alertebeEngine::CRITICAL
                : (($_trigger == 'warning') ? alertebeEngine::WARNING : alertebeEngine::NORMAL);
         $prefix = '[' . __('Essai', __FILE__) . '] ';
+        $object = $this->getObject();
         $tags = array(
             '#equipement#' => $this->getName(),
+            '#objet#'      => is_object($object) ? $object->getName() : '',
             '#niveau#'     => alertebeEngine::levelLabel($level),
             '#message#'    => $prefix . __('ceci est un essai des actions', __FILE__) . ' « '
                               . alertebeEngine::levelLabel($level) . ' » ' . __('de', __FILE__) . ' ' . $this->getName(),
@@ -763,7 +801,9 @@ class alertebe extends eqLogic {
             '#pic#'        => '',
             '#depuis#'     => date('H:i'),
             '#duree#'      => '0 s',
+            '#heure#'      => date('H:i'),
             '#rappel#'     => '0',
+            '#acquitte_par#' => ($_trigger == 'recovery') ? $prefix . self::currentUser() : '',
         );
         $fallback = false;
         $count = count($this->actionsFor($_trigger, $fallback));

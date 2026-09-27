@@ -29,7 +29,7 @@ Chaque règle surveille une commande info de n'importe quel plugin.
 | Au-dessus d'un seuil | frigo ≥ 7 °C, CO2 ≥ 1000 ppm |
 | En dessous d'un seuil | hors-gel ≤ 3 °C |
 | Hors d'une plage | humidité de la cave hors 40–70 % |
-| Égal à | détecteur de fuite = 1, contact = « open » |
+| Égal à | détecteur de fuite = 1, contact = « open », ou plusieurs valeurs : `open\|ouvert` |
 | Hausse rapide | +8 °C en 2 minutes |
 | Baisse rapide | −5 °C en 10 minutes |
 
@@ -49,6 +49,9 @@ Et pour chacune :
   passe en avertissement. Jeedom garde la dernière valeur d'un capteur à la pile
   vide ; sans ce contrôle, il dirait « tout va bien » indéfiniment. Beaucoup de
   capteurs ne publient qu'au changement : ne descendez pas trop bas.
+- **Égal à** : la comparaison ignore les majuscules. Plusieurs valeurs se
+  séparent par `|` : `open|ouvert|1` reconnaît les trois, utile quand deux
+  contacts d'un même rôle ne rendent pas le même texte.
 - **Fenêtre** (hausse et baisse rapides) : le temps sur lequel se mesure la
   variation, depuis le point le plus bas (ou le plus haut) de la fenêtre.
 
@@ -100,13 +103,16 @@ Dans les titres et les messages, ces mots sont remplacés :
 | Mot | Remplacé par |
 |---|---|
 | `#equipement#` | le nom de la surveillance |
+| `#objet#` | sa pièce (objet parent), vide sinon |
 | `#niveau#` | Avertissement, Critique, Normal |
 | `#message#` | les règles en alerte, en clair : « Frigo : 11,2 °C (≥ 10 °C) » |
 | `#regle#`, `#capteur#` | la pire règle et son capteur |
 | `#valeur#`, `#unite#`, `#seuil#` | sa valeur, son unité, le seuil franchi |
 | `#pic#` | le pire atteint pendant l'alerte |
 | `#depuis#`, `#duree#` | l'heure du début, la durée |
+| `#heure#` | l'heure du déclenchement de l'action |
 | `#rappel#` | le numéro du rappel (0 pour la première alerte) |
+| `#acquitte_par#` | au retour à la normale, qui avait acquitté l'alerte ; vide sinon |
 
 Le bouton **Tester** joue les actions enregistrées d'un niveau, avec un message
 d'essai, sans rien changer à l'état de la surveillance.
@@ -128,7 +134,10 @@ scénario (commande « Acquitter »).
 ### Centre de messages
 
 Chaque alerte y est inscrite (réglable) : une trace dans Jeedom même si aucune
-action n'est réglée, ou si la notification n'est pas partie.
+action n'est réglée, ou si la notification n'est pas partie. Un message par
+alerte et par niveau — le passage en critique a le sien — qui reste après le
+retour à la normale. Suspendre, désactiver ou supprimer la surveillance efface
+ses messages.
 
 ## Suspendre, désactiver
 
@@ -157,6 +166,13 @@ durée de confirmation et redéclenche ses actions.
 | Suspendre (minutes) | action curseur | |
 | Reprendre | action | |
 | Rafraîchir | action | réévalue tout de suite |
+
+« En alerte », « Surveillance active », « Activer » et « Désactiver la
+surveillance » portent les types génériques d'une alarme (état, état activé,
+armer, libérer) : l'application mobile et les ponts vers Homebridge ou Google
+présentent ainsi chaque surveillance comme une alarme, qu'on peut suspendre ou
+réactiver du téléphone. Un type générique changé à la main n'est jamais
+écrasé.
 
 ## Fonctionnement
 

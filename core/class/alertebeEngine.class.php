@@ -199,8 +199,10 @@ class alertebeEngine {
             $value = isset($raw[$key]) ? $raw[$key] : '';
             if ($type === 'equal') {
                 /* Une valeur à reconnaître, pas un nombre : « 1 », « on »,
-                 * « open ». Seuls warning et critical ont un sens ici. */
-                $rule[$key] = in_array($key, array('warning', 'critical'), true) ? trim((string) $value) : '';
+                 * « open », ou plusieurs séparées par | : « open|ouvert|1 ».
+                 * Seuls warning et critical ont un sens ici. */
+                $rule[$key] = in_array($key, array('warning', 'critical'), true)
+                    ? implode('|', self::equalValues($value)) : '';
             } else {
                 $number = self::number($value);
                 $rule[$key] = ($number === null) ? '' : $number;
@@ -274,8 +276,11 @@ class alertebeEngine {
                 }
                 break;
             case 'equal':
-                if ($warning !== null && $critical !== null && mb_strtolower($warning) === mb_strtolower($critical)) {
-                    $problems[] = self::t('même valeur pour les deux niveaux : seul le critique servira');
+                if ($warning !== null && $critical !== null) {
+                    $lower = function ($_values) { return array_map('mb_strtolower', $_values); };
+                    if (count(array_intersect($lower(self::equalValues($warning)), $lower(self::equalValues($critical)))) > 0) {
+                        $problems[] = self::t('même valeur pour les deux niveaux : seul le critique servira');
+                    }
                 }
                 break;
         }
@@ -284,6 +289,17 @@ class alertebeEngine {
             $problems[] = self::t('hystérésis plus large que l\'écart entre les deux seuils');
         }
         return $problems;
+    }
+
+    /* Les valeurs d'une règle « égal à » : « open | ouvert » en donne deux. */
+    public static function equalValues($_text) {
+        $values = array();
+        foreach (explode('|', (string) $_text) as $value) {
+            if (trim($value) !== '') {
+                $values[] = trim($value);
+            }
+        }
+        return $values;
     }
 
     private static function thresholdKeys($_type) {
@@ -369,10 +385,16 @@ class alertebeEngine {
                 if ($expected === null) {
                     return false;
                 }
-                if (is_numeric($expected) && is_numeric($_metric)) {
-                    return (float) $expected == (float) $_metric;
+                foreach (self::equalValues($expected) as $value) {
+                    if (is_numeric($value) && is_numeric($_metric)) {
+                        if ((float) $value == (float) $_metric) {
+                            return true;
+                        }
+                    } elseif (mb_strtolower($value) === mb_strtolower((string) $_metric)) {
+                        return true;
+                    }
                 }
-                return mb_strtolower($expected) === mb_strtolower((string) $_metric);
+                return false;
             case 'outside':
                 $low = self::threshold($_rule, $prefix . '_low');
                 $high = self::threshold($_rule, $prefix . '_high');
@@ -580,7 +602,7 @@ class alertebeEngine {
         switch ($_rule['type']) {
             case 'equal':
                 $value = self::threshold($_rule, $prefix);
-                return ($value === null) ? '' : '= ' . $value;
+                return ($value === null) ? '' : '= ' . implode(' ' . self::t('ou') . ' ', self::equalValues($value));
             case 'outside':
                 $low = self::threshold($_rule, $prefix . '_low');
                 $high = self::threshold($_rule, $prefix . '_high');
