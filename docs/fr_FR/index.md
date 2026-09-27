@@ -75,14 +75,45 @@ modifiables ensuite :
 
 | Profil | Règle |
 |---|---|
+| **Froid alimentaire** | |
 | Frigo | ≥ 7 °C / ≥ 10 °C, confirmation 20 min, hystérésis 1 °C, muet après 3 h |
 | Congélateur | ≥ −15 °C / ≥ −12 °C, confirmation 30 min |
+| Cave à vin | hors 10–16 °C / hors 8–18 °C, confirmation 1 h |
+| **Confort et chauffage** | |
+| Pièce en surchauffe | ≥ 28 °C / ≥ 32 °C, confirmation 15 min, hystérésis 1 °C, muet après 3 h |
+| Pièce trop froide | ≤ 17 °C / ≤ 15 °C, confirmation 30 min |
+| Hors-gel | ≤ 5 °C / ≤ 3 °C, confirmation 10 min |
+| Fenêtre ouverte | −2 °C / −4 °C en 5 min, immédiat : de quoi couper le chauffage |
+| Aquarium | hors 24–27 °C / hors 22–29 °C, confirmation 15 min |
+| **Sécurité** | |
 | Incendie — température | ≥ 50 °C / ≥ 57 °C, immédiat |
 | Incendie — hausse rapide | +5 °C / +8 °C en 2 min, immédiat |
-| Hors-gel | ≤ 5 °C / ≤ 3 °C, confirmation 10 min |
+| Détecteur de fumée / CO | = `1\|alarm\|smoke` en critique, immédiat |
 | Fuite d'eau | = 1 en critique, immédiat |
+| Porte ou garage resté ouvert | = `open\|ouvert\|1` en avertissement, confirmation 10 min |
+| Coupure de courant | = `0\|off` en critique, immédiat |
+| **Air et humidité** | |
 | Humidité (cave) | hors 40–70 % / hors 30–80 %, confirmation 1 h |
+| Humidité excessive (moisissures) | ≥ 70 % / ≥ 80 %, confirmation 2 h : la douche ne compte pas |
+| Air trop sec | ≤ 35 % / ≤ 30 %, confirmation 2 h |
 | CO2 | ≥ 1000 / ≥ 1500 ppm, confirmation 5 min |
+| Particules fines (PM2.5) | ≥ 25 / ≥ 50 µg/m³, confirmation 15 min |
+| Radon | ≥ 100 / ≥ 300 Bq/m³, confirmation 24 h |
+| **Équipements et extérieur** | |
+| Pression de la chaudière | hors 1–2 bar / hors 0,8–2,5 bar, confirmation 30 min |
+| Pile faible | ≤ 20 % / ≤ 10 %, confirmation 1 h |
+| Vent fort (store banne) | ≥ 40 / ≥ 60 km/h, immédiat |
+
+Quelques précisions :
+
+- **Porte ou garage resté ouvert** : selon le plugin, un contact ouvert vaut 1
+  ou 0. Si l'alerte part porte fermée, remplacez `1` par `0`.
+- **Détecteur de fumée / CO** et **Incendie** relaient un détecteur, ils ne le
+  remplacent pas : un détecteur certifié reste indispensable.
+- **Radon** : 300 Bq/m³ est le niveau d'action retenu en Belgique (AFCN). C'est
+  la moyenne qui compte, pas un pic, d'où les 24 heures de confirmation.
+- **Pile faible** se pose sur la commande batterie d'un équipement important :
+  le détecteur de fumée, la sonde du congélateur.
 
 ## Les actions
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4
+
+- **23 profiles**, grouped in the list: the nine existing ones are joined by
+  overheating room, room too cold, open window, wine cellar, aquarium, smoke /
+  CO detector, door or garage left open, power cut, excess humidity, air too
+  dry, fine particles, radon, boiler pressure, low battery and strong wind.
+
 ## 0.3
 
 - **Message center**: one message per alert and per level. Until now, going

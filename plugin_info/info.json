@@ -1,7 +1,7 @@
 {
     "id": "alertebe",
     "name": "Alertes BE",
-    "pluginVersion": "0.3",
+    "pluginVersion": "0.4",
     "description": {
         "fr_FR": "Surveille des capteurs et déclenche des actions quand ils franchissent un seuil : un frigo à 10 °C, un congélateur qui remonte, une pièce qui prend 8 °C en deux minutes, une fuite d'eau, une cave trop humide. Deux niveaux, avertissement et critique, une durée de confirmation pour qu'une porte de frigo ouverte ne déclenche rien, une hystérésis pour qu'une valeur qui danse autour du seuil ne clignote pas, et une alerte quand un capteur se tait. Des profils prêts à l'emploi, des actions au choix pour chaque niveau et pour le retour à la normale, des rappels tant que personne n'a acquitté, un journal et une vue d'ensemble de toutes les surveillances.",
         "en_US": "Watches sensors and runs actions when they cross a threshold: a fridge at 10 °C, a freezer warming up, a room gaining 8 °C in two minutes, a water leak, a damp cellar. Two levels, warning and critical, a confirmation delay so that an open fridge door triggers nothing, a hysteresis so that a value hovering around the threshold does not flicker, and an alert when a sensor goes silent. Ready-made profiles, actions of your choice for each level and for the return to normal, reminders until someone acknowledges, a log and an overview of every watch."

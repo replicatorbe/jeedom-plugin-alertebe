@@ -60,15 +60,56 @@ class alertebeEngine {
      * patience, il sonnerait à chaque yaourt. Un incendie, lui, n'attend pas.
      */
     const PROFILES = array(
-        'fridge'   => array('type' => 'above', 'warning' => 7, 'critical' => 10, 'delay' => 20, 'hysteresis' => 1, 'stale_after' => 180),
-        'freezer'  => array('type' => 'above', 'warning' => -15, 'critical' => -12, 'delay' => 30, 'hysteresis' => 1, 'stale_after' => 180),
-        'fire'     => array('type' => 'above', 'warning' => 50, 'critical' => 57, 'delay' => 0, 'hysteresis' => 2, 'stale_after' => 0),
-        'fire_rate' => array('type' => 'rise', 'warning' => 5, 'critical' => 8, 'window' => 2, 'delay' => 0, 'hysteresis' => 1, 'stale_after' => 0),
-        'frost'    => array('type' => 'below', 'warning' => 5, 'critical' => 3, 'delay' => 10, 'hysteresis' => 0.5, 'stale_after' => 180),
-        'leak'     => array('type' => 'equal', 'warning' => '', 'critical' => '1', 'delay' => 0, 'hysteresis' => 0, 'stale_after' => 0),
-        'humidity' => array('type' => 'outside', 'warning_low' => 40, 'warning_high' => 70, 'critical_low' => 30, 'critical_high' => 80,
-                            'delay' => 60, 'hysteresis' => 2, 'stale_after' => 360),
-        'co2'      => array('type' => 'above', 'warning' => 1000, 'critical' => 1500, 'delay' => 5, 'hysteresis' => 100, 'stale_after' => 60),
+        /* Froid alimentaire */
+        'fridge'      => array('type' => 'above', 'warning' => 7, 'critical' => 10, 'delay' => 20, 'hysteresis' => 1, 'stale_after' => 180),
+        'freezer'     => array('type' => 'above', 'warning' => -15, 'critical' => -12, 'delay' => 30, 'hysteresis' => 1, 'stale_after' => 180),
+        'wine_cellar' => array('type' => 'outside', 'warning_low' => 10, 'warning_high' => 16, 'critical_low' => 8, 'critical_high' => 18,
+                               'delay' => 60, 'hysteresis' => 0.5, 'stale_after' => 360),
+        /* Confort et chauffage. Une pièce de vie, un bureau, un local
+         * technique : 15 minutes pour qu'un rayon de soleil sur le capteur ne
+         * suffise pas. */
+        'overheat'    => array('type' => 'above', 'warning' => 28, 'critical' => 32, 'delay' => 15, 'hysteresis' => 1, 'stale_after' => 180),
+        'cold_room'   => array('type' => 'below', 'warning' => 17, 'critical' => 15, 'delay' => 30, 'hysteresis' => 1, 'stale_after' => 180),
+        'frost'       => array('type' => 'below', 'warning' => 5, 'critical' => 3, 'delay' => 10, 'hysteresis' => 0.5, 'stale_after' => 180),
+        /* Une fenêtre ouverte en hiver fait perdre plusieurs degrés en
+         * quelques minutes au capteur voisin : de quoi couper le chauffage. */
+        'window_open' => array('type' => 'fall', 'warning' => 2, 'critical' => 4, 'window' => 5, 'delay' => 0, 'hysteresis' => 0.5, 'stale_after' => 0),
+        'aquarium'    => array('type' => 'outside', 'warning_low' => 24, 'warning_high' => 27, 'critical_low' => 22, 'critical_high' => 29,
+                               'delay' => 15, 'hysteresis' => 0.5, 'stale_after' => 180),
+        /* Sécurité. Ces profils relaient un détecteur, ils ne le remplacent
+         * pas : un détecteur de fumée ou de CO certifié reste indispensable. */
+        'fire'        => array('type' => 'above', 'warning' => 50, 'critical' => 57, 'delay' => 0, 'hysteresis' => 2, 'stale_after' => 0),
+        'fire_rate'   => array('type' => 'rise', 'warning' => 5, 'critical' => 8, 'window' => 2, 'delay' => 0, 'hysteresis' => 1, 'stale_after' => 0),
+        'smoke'       => array('type' => 'equal', 'warning' => '', 'critical' => '1|alarm|smoke', 'delay' => 0, 'hysteresis' => 0, 'stale_after' => 0),
+        'leak'        => array('type' => 'equal', 'warning' => '', 'critical' => '1', 'delay' => 0, 'hysteresis' => 0, 'stale_after' => 0),
+        'door_open'   => array('type' => 'equal', 'warning' => 'open|ouvert|1', 'critical' => '', 'delay' => 10, 'hysteresis' => 0, 'stale_after' => 0),
+        'power_cut'   => array('type' => 'equal', 'warning' => '', 'critical' => '0|off', 'delay' => 0, 'hysteresis' => 0, 'stale_after' => 0),
+        /* Air et humidité. Le radon se juge sur la durée : 300 Bq/m³ est le
+         * niveau d'action belge (AFCN), et c'est la moyenne qui compte, pas
+         * un pic, d'où 24 heures de confirmation. */
+        'humidity'    => array('type' => 'outside', 'warning_low' => 40, 'warning_high' => 70, 'critical_low' => 30, 'critical_high' => 80,
+                               'delay' => 60, 'hysteresis' => 2, 'stale_after' => 360),
+        'damp'        => array('type' => 'above', 'warning' => 70, 'critical' => 80, 'delay' => 120, 'hysteresis' => 5, 'stale_after' => 360),
+        'dry_air'     => array('type' => 'below', 'warning' => 35, 'critical' => 30, 'delay' => 120, 'hysteresis' => 3, 'stale_after' => 360),
+        'co2'         => array('type' => 'above', 'warning' => 1000, 'critical' => 1500, 'delay' => 5, 'hysteresis' => 100, 'stale_after' => 60),
+        'pm25'        => array('type' => 'above', 'warning' => 25, 'critical' => 50, 'delay' => 15, 'hysteresis' => 5, 'stale_after' => 60),
+        'radon'       => array('type' => 'above', 'warning' => 100, 'critical' => 300, 'delay' => 1440, 'hysteresis' => 20, 'stale_after' => 1440),
+        /* Équipements et extérieur */
+        'boiler_pressure' => array('type' => 'outside', 'warning_low' => 1, 'warning_high' => 2, 'critical_low' => 0.8, 'critical_high' => 2.5,
+                                   'delay' => 30, 'hysteresis' => 0.1, 'stale_after' => 360),
+        'battery'     => array('type' => 'below', 'warning' => 20, 'critical' => 10, 'delay' => 60, 'hysteresis' => 5, 'stale_after' => 0),
+        'wind'        => array('type' => 'above', 'warning' => 40, 'critical' => 60, 'delay' => 0, 'hysteresis' => 10, 'stale_after' => 60),
+    );
+
+    /* Les profils par groupe, pour la liste déroulante : à vingt-trois, une
+     * liste à plat ne se lit plus. Chaque profil est dans un groupe et un
+     * seul, ce que vérifie le jeu d'essai. */
+    const PROFILE_GROUPS = array(
+        'food'      => array('fridge', 'freezer', 'wine_cellar'),
+        'comfort'   => array('overheat', 'cold_room', 'frost', 'window_open', 'aquarium'),
+        'safety'    => array('fire', 'fire_rate', 'smoke', 'leak', 'door_open', 'power_cut'),
+        'air'       => array('humidity', 'damp', 'dry_air', 'co2', 'pm25', 'radon'),
+        'equipment' => array('boiler_pressure', 'battery', 'wind'),
     );
 
     /* Les champs d'une règle qui portent un seuil. */
@@ -155,16 +196,42 @@ class alertebeEngine {
 
     public static function profileLabel($_profile) {
         switch ($_profile) {
-            case 'fridge':    return self::t('Frigo');
-            case 'freezer':   return self::t('Congélateur');
-            case 'fire':      return self::t('Incendie — température');
-            case 'fire_rate': return self::t('Incendie — hausse rapide');
-            case 'frost':     return self::t('Hors-gel');
-            case 'leak':      return self::t('Fuite d\'eau / inondation');
-            case 'humidity':  return self::t('Humidité hors plage (cave)');
-            case 'co2':       return self::t('Qualité de l\'air (CO2)');
+            case 'fridge':          return self::t('Frigo');
+            case 'freezer':         return self::t('Congélateur');
+            case 'wine_cellar':     return self::t('Cave à vin');
+            case 'overheat':        return self::t('Pièce en surchauffe');
+            case 'cold_room':       return self::t('Pièce trop froide');
+            case 'frost':           return self::t('Hors-gel');
+            case 'window_open':     return self::t('Fenêtre ouverte (chute de température)');
+            case 'aquarium':        return self::t('Aquarium');
+            case 'fire':            return self::t('Incendie — température');
+            case 'fire_rate':       return self::t('Incendie — hausse rapide');
+            case 'smoke':           return self::t('Détecteur de fumée / CO');
+            case 'leak':            return self::t('Fuite d\'eau / inondation');
+            case 'door_open':       return self::t('Porte ou garage resté ouvert');
+            case 'power_cut':       return self::t('Coupure de courant');
+            case 'humidity':        return self::t('Humidité hors plage (cave)');
+            case 'damp':            return self::t('Humidité excessive (moisissures)');
+            case 'dry_air':         return self::t('Air trop sec');
+            case 'co2':             return self::t('Qualité de l\'air (CO2)');
+            case 'pm25':            return self::t('Particules fines (PM2.5)');
+            case 'radon':           return self::t('Radon');
+            case 'boiler_pressure': return self::t('Pression de la chaudière');
+            case 'battery':         return self::t('Pile faible');
+            case 'wind':            return self::t('Vent fort (store banne)');
         }
         return $_profile;
+    }
+
+    public static function profileGroupLabel($_group) {
+        switch ($_group) {
+            case 'food':      return self::t('Froid alimentaire');
+            case 'comfort':   return self::t('Confort et chauffage');
+            case 'safety':    return self::t('Sécurité');
+            case 'air':       return self::t('Air et humidité');
+            case 'equipment': return self::t('Équipements et extérieur');
+        }
+        return $_group;
     }
 
     /* =============================================================== RÈGLES */

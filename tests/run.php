@@ -72,6 +72,14 @@ verifie('égalité : champs de plage ignorés', $e['warning_low'], '');
 verifie('règle sans seuil repérée', alertebeEngine::ruleHasThreshold(alertebeEngine::cleanRule(array())), false);
 verifie('profil frigo', alertebeEngine::profileRule('fridge')['warning'], 7.0);
 verifie('profil inconnu', alertebeEngine::profileRule('xyz'), null);
+verifie('profil surchauffe', alertebeEngine::profileRule('overheat')['critical'], 32.0);
+verifie('profil surchauffe cohérent', alertebeEngine::ruleProblems(alertebeEngine::cleanRule(alertebeEngine::PROFILES['overheat'])), array());
+$piece = new Capteur(alertebeEngine::PROFILES['overheat']);
+$piece->mesure(29);
+$piece->avance(10);
+verifie('surchauffe : 29 °C depuis 10 min, pas encore', $piece->mesure(29), 0);
+$piece->avance(5);
+verifie('surchauffe : 29 °C depuis 15 min, avertissement', $piece->mesure(29), 1);
 
 /* ------------------------------------------------------------------ 2 --- */
 echo "2. Frigo : la porte ouverte ne déclenche rien\n";
@@ -283,6 +291,59 @@ verifie('valeur commune aux deux niveaux signalée',
         count(alertebeEngine::ruleProblems(alertebeEngine::cleanRule(array('type' => 'equal', 'warning' => 'open|ajar', 'critical' => 'OPEN')))), 1);
 verifie('valeurs distinctes acceptées',
         alertebeEngine::ruleProblems(alertebeEngine::cleanRule(array('type' => 'equal', 'warning' => 'ajar', 'critical' => 'open|1'))), array());
+
+/* ----------------------------------------------------------------- 13 --- */
+echo "13. Profils\n";
+$groupes = call_user_func_array('array_merge', array_values(alertebeEngine::PROFILE_GROUPS));
+verifie('chaque profil dans un groupe, et un seul', array_count_values($groupes) == array_fill_keys(array_keys(alertebeEngine::PROFILES), 1), true);
+$incoherents = array();
+foreach (array_keys(alertebeEngine::PROFILES) as $profil) {
+    $regle = alertebeEngine::profileRule($profil);
+    if (alertebeEngine::ruleProblems($regle) !== array() || alertebeEngine::profileLabel($profil) === $profil) {
+        $incoherents[] = $profil;
+    }
+}
+verifie('aucun profil incohérent ni sans libellé', $incoherents, array());
+
+$porte = new Capteur(alertebeEngine::PROFILES['door_open']);
+$porte->mesure('open');
+$porte->avance(5);
+verifie('porte ouverte 5 min : rien', $porte->mesure('open'), 0);
+$porte->avance(5);
+verifie('porte ouverte 10 min : avertissement', $porte->mesure('Ouvert'), 1);
+verifie('porte refermée : retour immédiat', $porte->mesure('closed'), 0);
+
+$fenetre = new Capteur(alertebeEngine::PROFILES['window_open']);
+$fenetre->mesure(21);
+$fenetre->avance(2);
+verifie('fenêtre : −1 °C en 2 min, rien', $fenetre->mesure(20), 0);
+$fenetre->avance(2);
+verifie('fenêtre : −2,5 °C en 4 min, avertissement', $fenetre->mesure(18.5), 1);
+$fenetre->avance(1);
+verifie('fenêtre : −4,5 °C en 5 min, critique', $fenetre->mesure(16.5), 2);
+
+$chaudiere = new Capteur(alertebeEngine::PROFILES['boiler_pressure']);
+verifie('chaudière 1,5 bar : normal', $chaudiere->mesure('1,5'), 0);
+$chaudiere->mesure(0.7);
+$chaudiere->avance(30);
+verifie('chaudière 0,7 bar depuis 30 min : critique', $chaudiere->mesure(0.7), 2);
+
+$radon = new Capteur(alertebeEngine::PROFILES['radon']);
+$radon->mesure(350);
+$radon->avance(12 * 60);
+verifie('radon 350 Bq/m³ depuis 12 h : rien encore', $radon->mesure(350), 0);
+$radon->avance(12 * 60);
+verifie('radon 350 Bq/m³ depuis 24 h : critique', $radon->mesure(350), 2);
+
+verifie('fumée : « Alarm » reconnu', (new Capteur(alertebeEngine::PROFILES['smoke']))->mesure('Alarm'), 2);
+verifie('courant : 0 = coupure', (new Capteur(alertebeEngine::PROFILES['power_cut']))->mesure(0), 2);
+verifie('courant : 1 = présent', (new Capteur(alertebeEngine::PROFILES['power_cut']))->mesure(1), 0);
+verifie('pile 8 % : critique après 1 h', (function () {
+    $pile = new Capteur(alertebeEngine::PROFILES['battery']);
+    $pile->mesure(8);
+    $pile->avance(60);
+    return $pile->mesure(8);
+})(), 2);
 
 echo "\n" . ($ok + $ko) . " vérifications, " . $ko . " échec(s).\n";
 exit($ko > 0 ? 1 : 0);

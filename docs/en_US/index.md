@@ -74,14 +74,45 @@ The “Add a rule” button offers prefilled rules, all editable afterwards:
 
 | Profile | Rule |
 |---|---|
+| **Food cold chain** | |
 | Fridge | ≥ 7 °C / ≥ 10 °C, confirmation 20 min, hysteresis 1 °C, silent after 3 h |
 | Freezer | ≥ −15 °C / ≥ −12 °C, confirmation 30 min |
+| Wine cellar | outside 10–16 °C / outside 8–18 °C, confirmation 1 h |
+| **Comfort and heating** | |
+| Overheating room | ≥ 28 °C / ≥ 32 °C, confirmation 15 min, hysteresis 1 °C, silent after 3 h |
+| Room too cold | ≤ 17 °C / ≤ 15 °C, confirmation 30 min |
+| Frost protection | ≤ 5 °C / ≤ 3 °C, confirmation 10 min |
+| Open window | −2 °C / −4 °C in 5 min, immediate: enough to turn the heating off |
+| Aquarium | outside 24–27 °C / outside 22–29 °C, confirmation 15 min |
+| **Safety** | |
 | Fire — temperature | ≥ 50 °C / ≥ 57 °C, immediate |
 | Fire — rapid rise | +5 °C / +8 °C in 2 min, immediate |
-| Frost protection | ≤ 5 °C / ≤ 3 °C, confirmation 10 min |
+| Smoke / CO detector | = `1\|alarm\|smoke` as critical, immediate |
 | Water leak | = 1 as critical, immediate |
+| Door or garage left open | = `open\|ouvert\|1` as warning, confirmation 10 min |
+| Power cut | = `0\|off` as critical, immediate |
+| **Air and humidity** | |
 | Humidity (cellar) | outside 40–70 % / outside 30–80 %, confirmation 1 h |
+| Excess humidity (mould) | ≥ 70 % / ≥ 80 %, confirmation 2 h: a shower does not count |
+| Air too dry | ≤ 35 % / ≤ 30 %, confirmation 2 h |
 | CO2 | ≥ 1000 / ≥ 1500 ppm, confirmation 5 min |
+| Fine particles (PM2.5) | ≥ 25 / ≥ 50 µg/m³, confirmation 15 min |
+| Radon | ≥ 100 / ≥ 300 Bq/m³, confirmation 24 h |
+| **Equipment and outdoors** | |
+| Boiler pressure | outside 1–2 bar / outside 0.8–2.5 bar, confirmation 30 min |
+| Low battery | ≤ 20 % / ≤ 10 %, confirmation 1 h |
+| Strong wind (awning) | ≥ 40 / ≥ 60 km/h, immediate |
+
+A few notes:
+
+- **Door or garage left open**: depending on the plugin, an open contact is 1
+  or 0. If the alert fires with the door closed, replace `1` with `0`.
+- **Smoke / CO detector** and **Fire** relay a detector, they do not replace
+  it: a certified detector remains essential.
+- **Radon**: 300 Bq/m³ is the action level used in Belgium (FANC). The average
+  matters, not a peak, hence the 24-hour confirmation.
+- **Low battery** goes on the battery command of an important device: the
+  smoke detector, the freezer probe.
 
 ## Actions
 

@@ -231,8 +231,12 @@ function alertebeRuleNumber($_key, $_label, $_unit, $_placeholder, $_types, $_he
 					<div class="input-group input-group-sm" style="display:inline-flex;width:auto;">
 						<select class="form-control roundedLeft" id="sel_alertebeProfile" style="width:auto;">
 							<option value="">{{Règle vierge}}</option>
-							<?php foreach ($profiles as $key => $profile) { ?>
-								<option value="<?php echo $key; ?>"><?php echo $profile['label']; ?></option>
+							<?php foreach (alertebeEngine::PROFILE_GROUPS as $group => $keys) { ?>
+								<optgroup label="<?php echo alertebeEngine::profileGroupLabel($group); ?>">
+									<?php foreach ($keys as $key) { ?>
+										<option value="<?php echo $key; ?>"><?php echo $profiles[$key]['label']; ?></option>
+									<?php } ?>
+								</optgroup>
 							<?php } ?>
 						</select>
 						<span class="input-group-btn"><a class="btn btn-default roundedRight" id="bt_alertebeAddRule"><i class="fas fa-plus-circle"></i> {{Ajouter une règle}}</a></span>

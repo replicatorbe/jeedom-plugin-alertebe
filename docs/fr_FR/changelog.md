@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4
+
+- **23 profils**, rangés par groupe dans la liste : aux neuf existants
+  s'ajoutent pièce en surchauffe, pièce trop froide, fenêtre ouverte, cave à
+  vin, aquarium, détecteur de fumée / CO, porte ou garage resté ouvert, coupure
+  de courant, humidité excessive, air trop sec, particules fines, radon,
+  pression de la chaudière, pile faible et vent fort.
+
 ## 0.3
 
 - **Centre de messages** : un message par alerte et par niveau. Jusqu'ici, le
