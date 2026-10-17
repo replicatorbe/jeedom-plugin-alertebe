@@ -850,10 +850,28 @@ class alertebe extends eqLogic {
         $this->checkAndUpdateCmd('state', $label);
         $this->checkAndUpdateCmd('level', $level);
         $this->checkAndUpdateCmd('alert', ($level > 0) ? 1 : 0);
-        $this->checkAndUpdateCmd('message', ($level > 0) ? $_message : '');
-        $this->checkAndUpdateCmd('since', ($level > 0 && $state['eq']['since'] !== null) ? date('Y-m-d H:i:s', $state['eq']['since']) : '');
+        $this->updateTextCmd('message', ($level > 0) ? $_message : '');
+        $this->updateTextCmd('since', ($level > 0 && $state['eq']['since'] !== null) ? date('Y-m-d H:i:s', $state['eq']['since']) : '');
         $this->checkAndUpdateCmd('acknowledged', ($level > 0 && $state['eq']['ack'] == 1) ? 1 : 0);
         $this->checkAndUpdateCmd('monitoring', ($mode == 'on') ? 1 : 0);
+    }
+
+    /*
+     * Le cœur ne tient jamais une valeur vide pour une répétition :
+     * checkAndUpdateCmd() rejoue un événement complet (journal event,
+     * déclencheurs de scénarios) chaque fois que l'ancienne valeur est vide.
+     * Hors alerte, « Message » et « Depuis » restent vides et sont réécrits à
+     * chaque mesure du capteur, soit toutes les 3 à 6 s : le journal event
+     * tournait en boucle sur ces deux commandes. Vide sur vide, on n'écrit rien.
+     */
+    private function updateTextCmd($_logicalId, $_value) {
+        if ($_value === '') {
+            $cmd = $this->getCmd('info', $_logicalId);
+            if (is_object($cmd) && (string) $cmd->execCmd() === '') {
+                return;
+            }
+        }
+        $this->checkAndUpdateCmd($_logicalId, $_value);
     }
 
     public function journal($_text, $_kind = 'info') {

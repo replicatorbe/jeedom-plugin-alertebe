@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5
+
+- **Journal `event` allégé** : hors alerte, « Message » et « Depuis » restent
+  vides et ne sont plus réécrits à chaque mesure du capteur. Le cœur ne tient
+  jamais une valeur vide pour une répétition : chaque réécriture produisait un
+  événement complet, toutes les 3 à 6 s par surveillance.
+
 ## 0.4
 
 - **23 profils**, rangés par groupe dans la liste : aux neuf existants

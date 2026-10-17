@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5
+
+- **Lighter `event` log**: outside an alert, "Message" and "Since" stay empty
+  and are no longer rewritten on every sensor reading. The core never treats an
+  empty value as a repeat: each rewrite produced a full event, every 3 to 6 s
+  per watch.
+
 ## 0.4
 
 - **23 profiles**, grouped in the list: the nine existing ones are joined by
