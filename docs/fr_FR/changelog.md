@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1
+
+- **Reprendre** est liée à l'info « Surveillance active », comme « Activer » et
+  « Désactiver la surveillance ». « Suspendre (minutes) » ne l'est pas : son
+  curseur afficherait l'état 0/1 comme une durée. Les commandes existantes
+  sont rattachées au prochain enregistrement de l'équipement.
+
 ## 0.5
 
 - **Journal `event` allégé** : hors alerte, « Message » et « Depuis » restent

@@ -218,7 +218,7 @@ class alertebe extends eqLogic {
             array('logicalId' => 'suspend', 'name' => __('Suspendre (minutes)', __FILE__),
                   'type' => 'action', 'subType' => 'slider', 'visible' => 0, 'min' => 5, 'max' => 1440, 'step' => 5),
             array('logicalId' => 'resume', 'name' => __('Reprendre', __FILE__),
-                  'type' => 'action', 'subType' => 'other', 'visible' => 0),
+                  'type' => 'action', 'subType' => 'other', 'visible' => 0, 'value' => 'monitoring'),
             array('logicalId' => 'refresh', 'name' => __('Rafraîchir', __FILE__),
                   'type' => 'action', 'subType' => 'other', 'visible' => 1),
         );
@@ -261,8 +261,10 @@ class alertebe extends eqLogic {
             $created[$definition['logicalId']] = $cmd;
             $order++;
         }
-        /* Les actions liées à leur info, pour les widgets et l'appli mobile. */
-        foreach (array('arm', 'disarm') as $logicalId) {
+        /* Les actions liées à leur info, pour les widgets et l'appli mobile.
+         * « Suspendre » ne l'est pas : c'est un curseur en minutes, qui
+         * afficherait l'état 0/1 de la surveillance comme une durée. */
+        foreach (array('arm', 'disarm', 'resume') as $logicalId) {
             if ($created[$logicalId]->getValue() != $created['monitoring']->getId()) {
                 $created[$logicalId]->setValue($created['monitoring']->getId());
                 $created[$logicalId]->save();
